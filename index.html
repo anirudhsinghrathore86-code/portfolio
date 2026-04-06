@@ -1,149 +1,447 @@
-// Smooth scrolling for navigation links
-document.addEventListener('DOMContentLoaded', function() {
-    // Smooth scroll for anchor links
-    const links = document.querySelectorAll('a[href^="#"]');
-    
-    links.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>anrdh86 — portfolio</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<style>
+body {
+  background:#000;
+  color:#fff;
+  font-family:'JetBrains Mono', monospace;
+  margin:0;
+}
+
+/* NAV */
+nav {
+  display:flex;
+  gap:20px;
+  padding:15px;
+  border-bottom:1px solid #222;
+}
+nav button {
+  background:none;
+  border:none;
+  color:#888;
+  cursor:pointer;
+}
+nav button.active { color:#fff; }
+
+/* PAGES */
+.page { display:none; padding:20px; }
+.page.active { display:block; }
+
+/* BLOG */
+.blog-post {
+  border-bottom:1px solid #222;
+  padding:15px 0;
+}
+button { cursor:pointer; }
+
+/* GOD MODE */
+body.god-mode [data-editable] {
+  outline:1px dashed #555;
+}
+.delete-btn {
+  margin-left:10px;
+  color:red;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+  <button onclick="showPage('home')" class="active">Home</button>
+  <button onclick="showPage('blog')">Blog</button>
+  <button onclick="showPage('projects')">Projects</button>
+  <button onclick="logout()">Logout</button>
+</nav>
+
+<!-- HOME -->
+<div id="home" class="page active">
+  <h1 data-editable>Anirudh</h1>
+  <p data-editable>builder of things.</p>
+</div>
+
+<!-- BLOG -->
+<div id="blog" class="page">
+
+  <!-- Unlock -->
+  <input id="pass" placeholder="enter passcode">
+  <button onclick="unlock()">Unlock</button>
+
+  <!-- Create -->
+  <div id="createBox" style="display:none;">
+    <input id="title" placeholder="title"><br><br>
+    <textarea id="body" placeholder="write..."></textarea><br>
+    <label><input type="checkbox" id="private"> Private</label><br>
+    <button onclick="addPost()">Post</button>
+  </div>
+
+  <!-- Toggle -->
+  <button onclick="togglePrivate()">Toggle Private</button>
+
+  <div id="posts"></div>
+
+</div>
+
+<!-- PROJECTS -->
+<div id="projects" class="page">
+  <h2 data-editable>My Projects</h2>
+  <p data-editable>coming soon...</p>
+</div>
+
+<script>
+
+/* PASSCODES */
+const BLOGGER = "7425020630";
+const GOD = "anirudhisstraight";
+
+/* STATE */
+let access = localStorage.getItem("access") || "guest";
+let posts = JSON.parse(localStorage.getItem("posts") || "[]");
+let showPrivate = true;
+
+/* NAV */
+function showPage(id) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+/* UNLOCK */
+function unlock() {
+  const val = document.getElementById("pass").value;
+
+  if(val === BLOGGER){
+    access = "blogger";
+  } else if(val === GOD){
+    access = "god";
+  } else {
+    alert("wrong passcode");
+    return;
+  }
+
+  localStorage.setItem("access", access);
+  applyAccess();
+}
+
+/* APPLY ACCESS */
+function applyAccess(){
+
+  // create box
+  document.getElementById("createBox").style.display =
+    (access !== "guest") ? "block" : "none";
+
+  // god mode
+  if(access === "god"){
+    document.body.classList.add("god-mode");
+    document.querySelectorAll("[data-editable]").forEach(el=>{
+      el.contentEditable = true;
     });
-
-    // Scroll animation for hero section
-    const hero = document.querySelector('.hero');
-    const heroContent = document.querySelector('.hero-content');
-    
-    // Add scroll reveal animation
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-            }
-        });
-    }, observerOptions);
-
-    // Observe all sections for fade-in effect
-    const sections = document.querySelectorAll('section');
-    sections.forEach(section => {
-        section.style.opacity = '0';
-        section.style.transform = 'translateY(20px)';
-        section.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-        observer.observe(section);
+  } else {
+    document.body.classList.remove("god-mode");
+    document.querySelectorAll("[data-editable]").forEach(el=>{
+      el.contentEditable = false;
     });
+  }
 
-    // Parallax effect for hero background
-    window.addEventListener('scroll', () => {
-        const scrolled = window.pageYOffset;
-        const parallaxSpeed = scrolled * 0.5;
-        hero.style.backgroundPosition = `center ${parallaxSpeed}px`;
+  render();
+}
+
+/* POSTS */
+function addPost(){
+  const t = document.getElementById("title").value;
+  const b = document.getElementById("body").value;
+  const p = document.getElementById("private").checked;
+
+  if(!t || !b) return alert("fill fields");
+
+  posts.unshift({
+    id: Date.now(),
+    title:t,
+    body:b,
+    private:p,
+    date:new Date().toLocaleDateString()
+  });
+
+  localStorage.setItem("posts", JSON.stringify(posts));
+  render();
+}
+
+/* RENDER */
+function render(){
+  const el = document.getElementById("posts");
+  el.innerHTML = "";
+
+  posts.forEach(post=>{
+    if(post.private && access==="guest") return;
+    if(post.private && !showPrivate && access!=="guest") return;
+
+    const div = document.createElement("div");
+    div.className="blog-post";
+
+    div.innerHTML = `
+      <b>${post.title}</b> (${post.date})
+      <p>${post.body}</p>
+      ${access!=="guest" ? `<span class="delete-btn" onclick="del(${post.id})">delete</span>`:""}
+    `;
+
+    el.appendChild(div);
+  });
+}
+
+/* DELETE */
+function del(id){
+  posts = posts.filter(p=>p.id!==id);
+  localStorage.setItem("posts", JSON.stringify(posts));
+  render();
+}
+
+/* TOGGLE PRIVATE */
+function togglePrivate(){
+  showPrivate = !showPrivate;
+  render();
+}
+
+/* LOGOUT */
+function logout(){
+  access="guest";
+  localStorage.setItem("access","guest");
+  applyAccess();
+}
+
+/* INIT */
+applyAccess();
+
+</script>
+
+</body>
+    </html><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>anrdh86 — portfolio</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<style>
+body {
+  background:#000;
+  color:#fff;
+  font-family:'JetBrains Mono', monospace;
+  margin:0;
+}
+
+/* NAV */
+nav {
+  display:flex;
+  gap:20px;
+  padding:15px;
+  border-bottom:1px solid #222;
+}
+nav button {
+  background:none;
+  border:none;
+  color:#888;
+  cursor:pointer;
+}
+nav button.active { color:#fff; }
+
+/* PAGES */
+.page { display:none; padding:20px; }
+.page.active { display:block; }
+
+/* BLOG */
+.blog-post {
+  border-bottom:1px solid #222;
+  padding:15px 0;
+}
+button { cursor:pointer; }
+
+/* GOD MODE */
+body.god-mode [data-editable] {
+  outline:1px dashed #555;
+}
+.delete-btn {
+  margin-left:10px;
+  color:red;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+  <button onclick="showPage('home')" class="active">Home</button>
+  <button onclick="showPage('blog')">Blog</button>
+  <button onclick="showPage('projects')">Projects</button>
+  <button onclick="logout()">Logout</button>
+</nav>
+
+<!-- HOME -->
+<div id="home" class="page active">
+  <h1 data-editable>Anirudh</h1>
+  <p data-editable>builder of things.</p>
+</div>
+
+<!-- BLOG -->
+<div id="blog" class="page">
+
+  <!-- Unlock -->
+  <input id="pass" placeholder="enter passcode">
+  <button onclick="unlock()">Unlock</button>
+
+  <!-- Create -->
+  <div id="createBox" style="display:none;">
+    <input id="title" placeholder="title"><br><br>
+    <textarea id="body" placeholder="write..."></textarea><br>
+    <label><input type="checkbox" id="private"> Private</label><br>
+    <button onclick="addPost()">Post</button>
+  </div>
+
+  <!-- Toggle -->
+  <button onclick="togglePrivate()">Toggle Private</button>
+
+  <div id="posts"></div>
+
+</div>
+
+<!-- PROJECTS -->
+<div id="projects" class="page">
+  <h2 data-editable>My Projects</h2>
+  <p data-editable>coming soon...</p>
+</div>
+
+<script>
+
+/* PASSCODES */
+const BLOGGER = "7425020630";
+const GOD = "anirudhisstraight";
+
+/* STATE */
+let access = localStorage.getItem("access") || "guest";
+let posts = JSON.parse(localStorage.getItem("posts") || "[]");
+let showPrivate = true;
+
+/* NAV */
+function showPage(id) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+/* UNLOCK */
+function unlock() {
+  const val = document.getElementById("pass").value;
+
+  if(val === BLOGGER){
+    access = "blogger";
+  } else if(val === GOD){
+    access = "god";
+  } else {
+    alert("wrong passcode");
+    return;
+  }
+
+  localStorage.setItem("access", access);
+  applyAccess();
+}
+
+/* APPLY ACCESS */
+function applyAccess(){
+
+  // create box
+  document.getElementById("createBox").style.display =
+    (access !== "guest") ? "block" : "none";
+
+  // god mode
+  if(access === "god"){
+    document.body.classList.add("god-mode");
+    document.querySelectorAll("[data-editable]").forEach(el=>{
+      el.contentEditable = true;
     });
-
-    // Add hover effects for project cards
-    const projectCards = document.querySelectorAll('.project-card');
-    projectCards.forEach(card => {
-        card.addEventListener('mouseenter', () => {
-            card.style.transform = 'translateY(-10px) scale(1.02)';
-        });
-        
-        card.addEventListener('mouseleave', () => {
-            card.style.transform = 'translateY(0) scale(1)';
-        });
+  } else {
+    document.body.classList.remove("god-mode");
+    document.querySelectorAll("[data-editable]").forEach(el=>{
+      el.contentEditable = false;
     });
+  }
 
-    // Add typing effect for hero subtitle
-    const subtitle = document.querySelector('.hero-subtitle');
-    if (subtitle) {
-        const text = subtitle.textContent;
-        subtitle.textContent = '';
-        
-        let i = 0;
-        const typeWriter = () => {
-            if (i < text.length) {
-                subtitle.textContent += text.charAt(i);
-                i++;
-                setTimeout(typeWriter, 100);
-            }
-        };
-        
-        // Start typing effect after a short delay
-        setTimeout(typeWriter, 1000);
-    }
+  render();
+}
 
-    // Add scroll progress indicator
-    const createScrollIndicator = () => {
-        const progress = document.createElement('div');
-        progress.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary-red), var(--primary-yellow));
-            z-index: 9999;
-            width: 0%;
-            transition: width 0.1s;
-        `;
-        document.body.appendChild(progress);
+/* POSTS */
+function addPost(){
+  const t = document.getElementById("title").value;
+  const b = document.getElementById("body").value;
+  const p = document.getElementById("private").checked;
 
-        window.addEventListener('scroll', () => {
-            const scrolled = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
-            progress.style.width = scrolled + '%';
-        });
-    };
+  if(!t || !b) return alert("fill fields");
 
-    createScrollIndicator();
+  posts.unshift({
+    id: Date.now(),
+    title:t,
+    body:b,
+    private:p,
+    date:new Date().toLocaleDateString()
+  });
 
-    // Add click animation for social links
-    const socialLinks = document.querySelectorAll('.social-link');
-    socialLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            link.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                link.style.transform = 'scale(1)';
-            }, 150);
-        });
-    });
+  localStorage.setItem("posts", JSON.stringify(posts));
+  render();
+}
 
-    // Add responsive menu toggle for mobile
-    const createMobileMenu = () => {
-        const menuHTML = `
-            <div class="mobile-menu-toggle" id="mobileMenuToggle">
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-            </div>
-            <nav class="mobile-nav" id="mobileNav">
-                <ul>
-                    <li><a href="#about">About</a></li>
-                    <li><a href="#projects">Projects</a></li>
-                    <li><a href="#contact">Contact</a></li>
-                </ul>
-            </nav>
-        `;
-        
-        document.body.insertAdjacentHTML('afterbegin', menuHTML);
-        
-        const toggle = document.getElementById('mobileMenuToggle');
-        const nav = document.getElementById('mobileNav');
-        
-        toggle.addEventListener('click', () => {
-            toggle.classList.toggle('active');
-            nav.classList.toggle('active');
-        });
-    };
+/* RENDER */
+function render(){
+  const el = document.getElementById("posts");
+  el.innerHTML = "";
 
-    createMobileMenu();
-});
+  posts.forEach(post=>{
+    if(post.private && access==="guest") return;
+    if(post.private && !showPrivate && access!=="guest") return;
+
+    const div = document.createElement("div");
+    div.className="blog-post";
+
+    div.innerHTML = `
+      <b>${post.title}</b> (${post.date})
+      <p>${post.body}</p>
+      ${access!=="guest" ? `<span class="delete-btn" onclick="del(${post.id})">delete</span>`:""}
+    `;
+
+    el.appendChild(div);
+  });
+}
+
+/* DELETE */
+function del(id){
+  posts = posts.filter(p=>p.id!==id);
+  localStorage.setItem("posts", JSON.stringify(posts));
+  render();
+}
+
+/* TOGGLE PRIVATE */
+function togglePrivate(){
+  showPrivate = !showPrivate;
+  render();
+}
+
+/* LOGOUT */
+function logout(){
+  access="guest";
+  localStorage.setItem("access","guest");
+  applyAccess();
+}
+
+/* INIT */
+applyAccess();
+
+</script>
+
+</body>
+</html>
